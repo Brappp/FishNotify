@@ -4,7 +4,6 @@
     "Punchline": "Plays a sound when a fish is caught",
     "Description": "Plays a sound when a fish is caught, depending on tug-strength",
     "InternalName": "FishNotify",
-    "DalamudApiLevel": 7,
     "Tags": [
         "fishing"
     ],

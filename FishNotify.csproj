@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Authors></Authors>
     <Company></Company>
-    <Version>4.1</Version>
+    <Version>5.0</Version>
     <Description>Plays a sound effect when a fish bites</Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/carvelli/Fish-Notify</PackageProjectUrl>
@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net7.0-windows</TargetFramework>
     <Platforms>x64</Platforms>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -37,8 +37,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DalamudPackager" Version="2.1.8" />
-    <PackageReference Include="System.Windows.Extensions" Version="5.0.0" />
+    <PackageReference Include="DalamudPackager" Version="2.1.10" />
+    <PackageReference Include="System.Windows.Extensions" Version="7.0.0" />
     <Reference Include="FFXIVClientStructs">
       <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
       <Private>false</Private>
