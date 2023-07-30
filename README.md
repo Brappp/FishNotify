@@ -5,4 +5,4 @@ watching YouTube during fishing.
 
 ## Installation
 
-[Installation Instructions](https://github.com/carvelli/Dalamud-Plugins#installation).
+[Installation Instructions](https://git.carvel.li/liza/plugin-repo/src/branch/master/README.md).
