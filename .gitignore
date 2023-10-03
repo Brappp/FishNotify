@@ -1,4 +1,6 @@
-.vs/
-obj/
-dist/
+/dist
+/obj
+/bin
+/.idea
+/.vs
 *.user
