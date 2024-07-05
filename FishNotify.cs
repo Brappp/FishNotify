@@ -17,8 +17,7 @@ namespace FishNotify;
 public sealed class FishNotifyPlugin : IDalamudPlugin
 {
     [PluginService]
-    [RequiredVersion("1.0")]
-    private DalamudPluginInterface PluginInterface { get; set; } = null!;
+    private IDalamudPluginInterface PluginInterface { get; set; } = null!;
 
     [PluginService]
     private IGameNetwork Network { get; set; } = null!;
