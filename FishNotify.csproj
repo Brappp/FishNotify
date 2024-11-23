@@ -1,8 +1,14 @@
-﻿<Project Sdk="Dalamud.NET.Sdk/9.0.2">
+﻿<Project Sdk="Dalamud.NET.Sdk/11.0.0">
   <PropertyGroup>
-    <Version>7.0</Version>
+    <Version>8.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>dist</OutputPath>
+  </PropertyGroup>
+
+  <!-- fix dubious warnings and defaults for dalamud projects that only seem to be an issue after using Dalamud.NET.Sdk -->
+  <PropertyGroup>
+    <!-- no clue which bright ligth thought I don't want to see default items (e.g. .targets files, or the plugin manifest) -->
+    <EnableDefaultNoneItems>true</EnableDefaultNoneItems>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
