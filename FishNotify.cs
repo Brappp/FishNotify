@@ -1,144 +1,114 @@
-﻿using Dalamud.Game.Network;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface.Colors;
-using Dalamud.IoC;
 using Dalamud.Plugin;
-using ImGuiNET;
-using Newtonsoft.Json;
+using Dalamud.Bindings.ImGui;
 using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Dalamud.Plugin.Services;
 
 namespace FishNotify;
 
+public enum BiteType : byte
+{
+    Unknown = 0,
+    Weak = 36,
+    Strong = 37,
+    Legendary = 38,
+    None = 255,
+}
+
 public sealed class FishNotifyPlugin : IDalamudPlugin
 {
-    [PluginService]
-    private IDalamudPluginInterface PluginInterface { get; set; } = null!;
-
-    [PluginService]
-    private IGameNetwork Network { get; set; } = null!;
-
-    [PluginService]
-    private IChatGui Chat { get; set; } = null!;
-
-    [PluginService]
-    private IPluginLog PluginLog { get; set; } = null!;
+    private readonly IDalamudPluginInterface _pluginInterface;
+    private readonly IChatGui _chat;
+    private readonly IPluginLog _pluginLog;
+    private readonly ISigScanner _sigScanner;
+    private readonly IFramework _framework;
 
     private readonly Configuration _configuration;
     private bool _settingsVisible;
-    private int _expectedOpCode = -1;
     private uint _fishCount;
 
-    public FishNotifyPlugin()
+    private IntPtr _tugTypeAddress = IntPtr.Zero;
+    private BiteType _lastBite = BiteType.None;
+
+    // Signature from AutoHook plugin
+    private const string TugTypeSignature = "48 8D 35 ?? ?? ?? ?? 4C 8B CE";
+
+    public FishNotifyPlugin(
+        IDalamudPluginInterface pluginInterface,
+        IChatGui chat,
+        IPluginLog pluginLog,
+        ISigScanner sigScanner,
+        IFramework framework)
     {
-        _configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        _pluginInterface = pluginInterface;
+        _chat = chat;
+        _pluginLog = pluginLog;
+        _sigScanner = sigScanner;
+        _framework = framework;
 
-        Network.NetworkMessage += OnNetworkMessage;
-        PluginInterface.UiBuilder.Draw += OnDrawUI;
-        PluginInterface.UiBuilder.OpenConfigUi += OnOpenConfigUi;
+        _configuration = _pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-        var client = new HttpClient();
-        client.GetStringAsync("https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.min.json")
-            .ContinueWith(ExtractOpCode);
+        _pluginInterface.UiBuilder.Draw += OnDrawUI;
+        _pluginInterface.UiBuilder.OpenConfigUi += OnOpenConfigUi;
+        _framework.Update += OnFrameworkUpdate;
+
+        try
+        {
+            _tugTypeAddress = _sigScanner.GetStaticAddressFromSig(TugTypeSignature);
+            _pluginLog.Debug($"Found TugType address: {_tugTypeAddress:X}");
+        }
+        catch (Exception e)
+        {
+            _pluginLog.Error(e, "Could not find TugType signature");
+        }
     }
 
     public void Dispose()
     {
-        Network.NetworkMessage -= OnNetworkMessage;
-        PluginInterface.UiBuilder.Draw -= OnDrawUI;
-        PluginInterface.UiBuilder.OpenConfigUi -= OnOpenConfigUi;
+        _framework.Update -= OnFrameworkUpdate;
+        _pluginInterface.UiBuilder.Draw -= OnDrawUI;
+        _pluginInterface.UiBuilder.OpenConfigUi -= OnOpenConfigUi;
     }
 
-    private void ExtractOpCode(Task<string> task)
+    private unsafe void OnFrameworkUpdate(IFramework framework)
     {
-        try
+        if (_tugTypeAddress == IntPtr.Zero)
+            return;
+
+        var currentBite = *(BiteType*)_tugTypeAddress;
+
+        // Only trigger on state change to a valid bite
+        if (currentBite != _lastBite && currentBite != BiteType.None && currentBite != BiteType.Unknown)
         {
-            var regions = JsonConvert.DeserializeObject<List<OpcodeRegion>>(task.Result);
-            if (regions == null)
-            {
-                PluginLog.Warning("No regions found in opcode list");
-                return;
-            }
-
-            var region = regions.Find(r => r.Region == "Global");
-            if (region == null || region.Lists == null)
-            {
-                PluginLog.Warning("No global region found in opcode list");
-                return;
-            }
-
-            if (!region.Lists.TryGetValue("ServerZoneIpcType", out List<OpcodeList>? serverZoneIpcTypes) || serverZoneIpcTypes == null)
-            {
-                PluginLog.Warning("No ServerZoneIpcType in opcode list");
-                return;
-            }
-
-            var eventPlay = serverZoneIpcTypes.Find(opcode => opcode.Name == "EventPlay");
-            if (eventPlay == null)
-            {
-                PluginLog.Warning("No EventPlay opcode in ServerZoneIpcType");
-                return;
-            }
-
-            _expectedOpCode = eventPlay.Opcode;
-            PluginLog.Debug($"Found EventPlay opcode {_expectedOpCode:X4}");
+            _lastBite = currentBite;
+            OnBite(currentBite);
         }
-        catch (Exception e)
+        else if (currentBite == BiteType.None || currentBite == BiteType.Unknown)
         {
-            PluginLog.Error(e, "Could not download/extract opcodes: {}", e.Message);
+            _lastBite = currentBite;
         }
     }
 
-    private void OnNetworkMessage(IntPtr dataPtr, ushort opCode, uint sourceActorId, uint targetActorId, NetworkMessageDirection direction)
+    private void OnBite(BiteType bite)
     {
-        if (direction != NetworkMessageDirection.ZoneDown || opCode != _expectedOpCode)
-            return;
+        ++_fishCount;
 
-        var data = new byte[32];
-        Marshal.Copy(dataPtr, data, 0, data.Length);
-
-        int eventId = BitConverter.ToInt32(data, 8);
-        short scene = BitConverter.ToInt16(data, 12);
-        int param5 = BitConverter.ToInt32(data, 28);
-
-        // Fishing event?
-        if (eventId != 0x00150001)
-            return;
-
-        // Fish hooked?
-        if (scene != 5)
-            return;
-
-        switch (param5)
+        switch (bite)
         {
-
-            case 0x124:
-                // light tug (!)
-                ++_fishCount;
+            case BiteType.Weak:
                 Sounds.PlaySound(Resources.Info);
                 SendChatAlert("light");
                 break;
 
-            case 0x125:
-                // medium tug (!!)
-                ++_fishCount;
+            case BiteType.Strong:
                 Sounds.PlaySound(Resources.Alert);
                 SendChatAlert("medium");
                 break;
 
-            case 0x126:
-                // heavy tug (!!!)
-                ++_fishCount;
+            case BiteType.Legendary:
                 Sounds.PlaySound(Resources.Alarm);
                 SendChatAlert("heavy");
-                break;
-
-            default:
-                Sounds.Stop();
                 break;
         }
     }
@@ -160,7 +130,7 @@ public sealed class FishNotifyPlugin : IDalamudPlugin
             .AddUiForegroundOff()
             .Append(" bite.")
             .Build();
-        Chat.Print(message);
+        _chat.Print(message);
     }
 
     private void OnDrawUI()
@@ -174,13 +144,13 @@ public sealed class FishNotifyPlugin : IDalamudPlugin
             if (ImGui.Checkbox("Show chat message on hooking a fish", ref chatAlerts))
             {
                 _configuration.ChatAlerts = chatAlerts;
-                PluginInterface.SavePluginConfig(_configuration);
+                _pluginInterface.SavePluginConfig(_configuration);
             }
 
-            if (_expectedOpCode > -1)
-                ImGui.TextColored(ImGuiColors.HealerGreen, $"Status: {(_fishCount == 0 ? "Unknown (not triggered yet)" : $"OK ({_fishCount} fish hooked)")}, opcode = {_expectedOpCode:X}");
+            if (_tugTypeAddress != IntPtr.Zero)
+                ImGui.TextColored(ImGuiColors.HealerGreen, $"Status: {(_fishCount == 0 ? "Ready (not triggered yet)" : $"OK ({_fishCount} fish hooked)")}");
             else
-                ImGui.TextColored(ImGuiColors.DalamudRed, "Status: No opcode :(");
+                ImGui.TextColored(ImGuiColors.DalamudRed, "Status: Could not find tug signature :(");
         }
         ImGui.End();
     }
