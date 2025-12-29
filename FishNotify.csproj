@@ -1,6 +1,6 @@
-﻿<Project Sdk="Dalamud.NET.Sdk/12.0.2">
+﻿<Project Sdk="Dalamud.NET.Sdk/14.0.1">
   <PropertyGroup>
-    <Version>9.0</Version>
+    <Version>10.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>dist</OutputPath>
   </PropertyGroup>
@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="FishNotify.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -35,8 +39,8 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <Target Name="RenameLatestZip" AfterTargets="PackagePlugin">
-    <Exec Command="rename &quot;$(OutDir)$(AssemblyName)\latest.zip&quot; &quot;$(AssemblyName)-$(Version).zip&quot;" />
+  <Target Name="RenameLatestZip" AfterTargets="PackagePlugin" Condition="Exists('$(OutDir)$(AssemblyName)\latest.zip')">
+    <Exec Command="rename &quot;$(OutDir)$(AssemblyName)\latest.zip&quot; &quot;$(AssemblyName)-$(Version).zip&quot;" IgnoreExitCode="true" />
   </Target>
 
 </Project>

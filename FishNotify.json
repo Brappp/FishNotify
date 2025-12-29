@@ -1,12 +1,14 @@
 {
   "Author": "Liza Carvelli",
   "Name": "Fish Notify",
+  "InternalName": "FishNotify",
+  "AssemblyVersion": "10.0.0.0",
   "Punchline": "Plays a sound when a fish is caught",
   "Description": "Plays a sound when a fish is caught, depending on tug-strength",
-  "InternalName": "FishNotify",
+  "DalamudApiLevel": 14,
   "Tags": [
     "fishing"
   ],
   "RepoUrl": "https://github.com/VeraNala/FishNotify",
-  "IconUrl": "https://github.com/VeraNala/FishNotify/FishNotify.png",
+  "IconUrl": "https://raw.githubusercontent.com/VeraNala/FishNotify/main/FishNotify.png"
 }
